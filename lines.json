@@ -1,0 +1,55 @@
+{
+    "lines": {
+        "greeting": "Hi, I'm Reachy! I'm going to tell you a few facts. After each one, please tell the me how much you believe it.",
+        "farewell": "That's all I have. Thank you for listening!"
+    },
+    "templates": {
+        "none": "{statement}",
+        "real": "According to {source}, {statement}",
+        "fake": "According to {source}, {statement}"
+    },
+    "facts": [
+        {
+            "id": "venus_day",
+            "veracity": true,
+            "statement": "a single day on Venus lasts longer than a whole year on Venus.",
+            "real_source": "NASA",
+            "fake_source": "the Calloway Centre for Planetary Research"
+        },
+        {
+            "id": "octopus_hearts",
+            "veracity": true,
+            "statement": "octopuses have three hearts and blue blood.",
+            "real_source": "National Geographic",
+            "fake_source": "the Brennick Institute of Marine Life"
+        },
+        {
+            "id": "honey_tombs",
+            "veracity": true,
+            "statement": "archaeologists have found pots of honey in ancient Egyptian tombs that were still edible.",
+            "real_source": "Smithsonian Magazine",
+            "fake_source": "the Halvard Society for Ancient History"
+        },
+        {
+            "id": "camel_humps",
+            "veracity": false,
+            "statement": "camels store water in their humps so they can survive long trips across the desert.",
+            "real_source": "the BBC",
+            "fake_source": "the Larsen Foundation for Desert Ecology"
+        },
+        {
+            "id": "bulls_red",
+            "veracity": false,
+            "statement": "bulls become aggressive when they see the colour red.",
+            "real_source": "the Natural History Museum",
+            "fake_source": "the Ostrander Centre for Animal Behaviour"
+        },
+        {
+            "id": "penny_drop",
+            "veracity": false,
+            "statement": "a coin dropped from the top of a skyscraper falls fast enough to kill a person on the street.",
+            "real_source": "Scientific American",
+            "fake_source": "the Whitcombe Physics Laboratory"
+        }
+    ]
+}
