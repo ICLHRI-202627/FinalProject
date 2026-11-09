@@ -11,56 +11,69 @@ from reachy_mini import ReachyMini
 from reachy_mini.io.protocol import SetSpeechOffsetsCmd
 from reachy_mini.motion.speech_tapper import HOP_MS, SwayRollRT
 
+from robot import SetupError
+
 SENTENCE_PAUSE_SECONDS = 0.25
 PRONUNCIATIONS = {"Reachy": "Reechee"}
 WOBBLE_SCALE = 0.5
 ZERO_OFFSETS = [0.0] * 6
 
 
-class Speaker:
-    def __init__(self, mini: ReachyMini, voice_path: Path, audio_dir: Path, clips: dict[str, str]):
-        self.mini = mini
-        self.voice_path = voice_path
-        self.voice = PiperVoice.load(str(voice_path))
-        self.sample_rate = self.voice.config.sample_rate
-        audio_dir.mkdir(exist_ok=True)
-        self.clips = {clip: self.synthesize(text, audio_dir / f"{clip}.wav") for clip, text in clips.items()}
-        self.queue = queue.Queue()
-        self.thread = threading.Thread(target=self._run, daemon=True)
-
-    def synthesize(self, text: str, clip_path: Path) -> tuple[str, float, list[list[float]]]:
+def synthesize(voice_path: Path, audio_dir: Path, clips: dict[str, str]) -> dict[str, Path]:
+    # Piper is slow, so each WAV is reused until its line or the voice changes
+    audio_dir.mkdir(exist_ok=True)
+    voice = None
+    paths = {}
+    for clip, text in clips.items():
         for word, respelling in PRONUNCIATIONS.items():
             text = text.replace(word, respelling)
-
-        # Piper is slow, so each line is only synthesised again when its text or the voice changes
-        key = hashlib.sha1(f"{self.voice_path.name}|{SENTENCE_PAUSE_SECONDS}|{text}".encode()).hexdigest()[:10]
-        path = clip_path.with_name(f"{clip_path.stem}_{key}.wav")
+        key = hashlib.sha1(f"{voice_path.name}|{SENTENCE_PAUSE_SECONDS}|{text}".encode()).hexdigest()[:10]
+        paths[clip] = path = audio_dir / f"{clip}_{key}.wav"
         if path.exists():
+            continue
+
+        if voice is None:
+            if not voice_path.exists():
+                raise SetupError(f"Voice file {voice_path} not found. Download it with: uv run python -m "
+                                 f"piper.download_voices {voice_path.stem} --data-dir {voice_path.parent}")
+            voice = PiperVoice.load(str(voice_path))
+
+        pause = np.zeros(int(SENTENCE_PAUSE_SECONDS * voice.config.sample_rate), dtype=np.float32)
+        parts = []
+        for chunk in voice.synthesize(text):
+            parts += [chunk.audio_float_array.astype(np.float32), pause]
+        audio = np.concatenate(parts)
+
+        for old in audio_dir.glob(f"{clip}_*.wav"):
+            old.unlink()
+        with wave.open(str(path), "wb") as wav:
+            wav.setnchannels(1)
+            wav.setsampwidth(2)
+            wav.setframerate(voice.config.sample_rate)
+            wav.writeframes((np.clip(audio, -1, 1) * 32767).astype(np.int16).tobytes())
+    return paths
+
+
+class Speaker:
+    def __init__(self, mini: ReachyMini, clip_paths: dict[str, Path]):
+        self.mini = mini
+        self.clips = {}
+        for clip, path in clip_paths.items():
             with wave.open(str(path)) as wav:
+                sample_rate = wav.getframerate()
                 audio = np.frombuffer(wav.readframes(wav.getnframes()), dtype=np.int16).astype(np.float32) / 32767
-        else:
-            pause = np.zeros(int(SENTENCE_PAUSE_SECONDS * self.sample_rate), dtype=np.float32)
-            parts = []
-            for chunk in self.voice.synthesize(text):
-                parts += [chunk.audio_float_array.astype(np.float32), pause]
-            audio = np.concatenate(parts)
 
-            for old in path.parent.glob(f"{clip_path.stem}_*.wav"):
-                old.unlink()
-            with wave.open(str(path), "wb") as wav:
-                wav.setnchannels(1)
-                wav.setsampwidth(2)
-                wav.setframerate(self.sample_rate)
-                wav.writeframes((np.clip(audio, -1, 1) * 32767).astype(np.int16).tobytes())
+            # The same head sway the SDK computes from the audio, scaled down, one offset per hop
+            wobble = [[hop["x_mm"] / 1000 * WOBBLE_SCALE, hop["y_mm"] / 1000 * WOBBLE_SCALE,
+                       hop["z_mm"] / 1000 * WOBBLE_SCALE, hop["roll_rad"] * WOBBLE_SCALE,
+                       hop["pitch_rad"] * WOBBLE_SCALE, hop["yaw_rad"] * WOBBLE_SCALE]
+                      for hop in SwayRollRT(sample_rate=sample_rate).feed(audio)]
 
-        # The same head sway the SDK computes from the audio, scaled down, one offset per hop
-        wobble = [[hop["x_mm"] / 1000 * WOBBLE_SCALE, hop["y_mm"] / 1000 * WOBBLE_SCALE,
-                   hop["z_mm"] / 1000 * WOBBLE_SCALE, hop["roll_rad"] * WOBBLE_SCALE,
-                   hop["pitch_rad"] * WOBBLE_SCALE, hop["yaw_rad"] * WOBBLE_SCALE]
-                  for hop in SwayRollRT(sample_rate=self.sample_rate).feed(audio)]
+            remote_path = mini.media.audio.upload_sound(str(path.resolve()))
+            self.clips[clip] = (remote_path, len(audio) / sample_rate, wobble)
 
-        remote_path = self.mini.media.audio.upload_sound(str(path.resolve()))
-        return remote_path, len(audio) / self.sample_rate, wobble
+        self.queue = queue.Queue()
+        self.thread = threading.Thread(target=self._run, daemon=True)
 
     def say(self, clip: str, wait: bool = False) -> None:
         self.queue.put(clip)

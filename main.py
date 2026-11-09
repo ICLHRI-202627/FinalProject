@@ -1,6 +1,7 @@
 import argparse
-import logging
+import json
 import os
+import sys
 import time
 from contextlib import contextmanager
 from pathlib import Path
@@ -8,24 +9,15 @@ from pathlib import Path
 # Hides harmless RTP errors on the wireless robot; must be set before reachy_mini starts GStreamer
 os.environ.setdefault("GST_DEBUG", "rtpsession:0")
 
-from reachy_mini import ReachyMini
-
 from gestures import Gestures
-from session import load_session, run_session
-from speech import Speaker
+from robot import CONNECTIONS, SetupError, connect
+from session import all_clips, plan_session, run_session
+from speech import Speaker, synthesize
 
 ROOT = Path(__file__).parent
 LINES_PATH = ROOT / "lines.json"
 AUDIO_DIR = ROOT / "audio"
 VOICE_PATH = ROOT / "models" / "speech" / "en_US-lessac-high.onnx"
-QUIET_LOGGERS = ("reachy_mini.media.device_detection", "reachy_mini.media.audio_gstreamer",
-                 "reachy_mini.media.webrtc_client_gstreamer")
-
-CONNECTIONS = {
-    "wireless": {"connection_mode": "network", "host": "reachy-mini.local"},
-    "local": {"connection_mode": "localhost_only"},
-    "onboard": {"connection_mode": "localhost_only"},
-}
 
 
 @contextmanager
@@ -41,33 +33,40 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--target", choices=CONNECTIONS, default="local",
                         help="How to reach the robot (default: local, for the simulator).")
     parser.add_argument("--host", help="Robot hostname or IP address for wireless (default: reachy-mini.local).")
-    args = parser.parse_args()
-    args.connection = dict(CONNECTIONS[args.target])
-    if args.host:
-        args.connection["host"] = args.host
-    return args
+    parser.add_argument("--prepare", action="store_true",
+                        help="Generate the speech for every line and condition, then exit. No robot needed.")
+    return parser.parse_args()
 
 
 def print_settings(args: argparse.Namespace) -> None:
     print("Settings:")
-    print(f"  Target:      {args.target} {args.connection}")
+    print(f"  Target:      {'none (preparing speech)' if args.prepare else args.target}")
+    if args.host:
+        print(f"  Host:        {args.host}")
     print(f"  Voice:       {VOICE_PATH.name}")
     print()
 
 
 def run(args: argparse.Namespace) -> None:
-    lines, facts = load_session(LINES_PATH)
+    data = json.loads(LINES_PATH.read_text(encoding="utf-8"))
+
+    if args.prepare:
+        clips = all_clips(data)
+        with loading(f"Generating speech for {len(clips)} lines"):
+            synthesize(VOICE_PATH, AUDIO_DIR, clips)
+        return
+
+    facts = plan_session(data)
+    with loading("Preparing speech"):
+        clip_paths = synthesize(VOICE_PATH, AUDIO_DIR,
+                                {**data["lines"], **{fact["clip"]: fact["text"] for fact in facts}})
 
     with loading("Connecting to Reachy Mini"):
-        mini = ReachyMini(media_backend="default", **args.connection)
-
-    for name in QUIET_LOGGERS:
-        logging.getLogger(name).setLevel(logging.ERROR)
+        mini = connect(args.target, args.host)
 
     with mini:
-        with loading("Preparing speech"):
-            speaker = Speaker(mini, VOICE_PATH, AUDIO_DIR,
-                              {**lines, **{fact["clip"]: fact["text"] for fact in facts}})
+        with loading("Uploading speech"):
+            speaker = Speaker(mini, clip_paths)
         with loading("Loading gestures"):
             gestures = Gestures(mini)
 
@@ -77,7 +76,13 @@ def run(args: argparse.Namespace) -> None:
 def main() -> None:
     args = parse_args()
     print_settings(args)
-    run(args)
+    try:
+        run(args)
+    except SetupError as error:
+        print(f"\n\nError: {error}")
+        sys.exit(1)
+    except KeyboardInterrupt:
+        print("\nStopped.")
 
 
 if __name__ == "__main__":

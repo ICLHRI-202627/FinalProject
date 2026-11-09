@@ -1,10 +1,8 @@
 import ctypes
-import json
 import random
 import signal
 import sys
 import threading
-from pathlib import Path
 
 from reachy_mini import ReachyMini
 
@@ -14,27 +12,36 @@ from speech import Speaker
 CONDITIONS = ("none", "real", "fake")
 
 
-def load_session(lines_path: Path) -> tuple[dict, list[dict]]:
-    data = json.loads(lines_path.read_text(encoding="utf-8"))
-    offset = random.randrange(len(CONDITIONS))
+def phrase(data: dict, fact: dict, condition: str) -> str:
+    text = data["templates"][condition].format(statement=fact["statement"],
+                                               source=fact.get(f"{condition}_source", ""))
+    return text[0].upper() + text[1:]
 
+
+def all_clips(data: dict) -> dict[str, str]:
+    clips = dict(data["lines"])
+    for fact in data["facts"]:
+        for condition in CONDITIONS:
+            clips[f"{fact['id']}_{condition}"] = phrase(data, fact, condition)
+    return clips
+
+
+def plan_session(data: dict) -> list[dict]:
+    offset = random.randrange(len(CONDITIONS))
     facts = []
     for veracity in (True, False):
         group = [fact for fact in data["facts"] if fact["veracity"] == veracity]
         for index, fact in enumerate(group):
             condition = CONDITIONS[(index + offset) % len(CONDITIONS)]
-            text = data["templates"][condition].format(statement=fact["statement"],
-                                                       source=fact.get(f"{condition}_source", ""))
             facts.append({
                 "id": fact["id"],
                 "veracity": veracity,
                 "condition": condition,
-                "text": text[0].upper() + text[1:],
+                "text": phrase(data, fact, condition),
                 "clip": f"{fact['id']}_{condition}",
             })
-
     random.shuffle(facts)
-    return data["lines"], facts
+    return facts
 
 
 def put_to_sleep_on_exit(mini: ReachyMini):
