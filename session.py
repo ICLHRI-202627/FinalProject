@@ -10,6 +10,7 @@ from gestures import FACT_GESTURES, GREETING_GESTURE, Gestures
 from speech import Speaker
 
 CONDITIONS = {"real": "True source", "fake": "Fabricated source", "none": "No source"}
+BASE_TRUTH_PATTERN = (True, True, False, False, True, False, True, False, False, True)
 
 
 def phrase(data: dict, index: int, condition: str) -> str:
@@ -43,14 +44,30 @@ def ask_condition() -> str:
             return condition
 
 
-def plan_session(data: dict, condition: str) -> list[dict]:
-    facts = [{
-        "id": fact["id"],
-        "veracity": fact["veracity"],
-        "text": phrase(data, index, condition),
-        "clip": f"{fact['id']}_{condition}",
-    } for index, fact in enumerate(data["facts"])]
-    random.shuffle(facts)
+def plan_session(data: dict, condition: str, participant_number: int) -> list[dict]:
+    shift = (participant_number - 1) % len(BASE_TRUTH_PATTERN)
+    truth_pattern = BASE_TRUTH_PATTERN[shift:] + BASE_TRUTH_PATTERN[:shift]
+    facts_by_veracity = {
+        veracity: [
+            {
+                "id": fact["id"],
+                "veracity": fact["veracity"],
+                "text": phrase(data, index, condition),
+                "clip": f"{fact['id']}_{condition}",
+            }
+            for index, fact in enumerate(data["facts"])
+            if fact["veracity"] is veracity
+        ]
+        for veracity in (True, False)
+    }
+    for facts in facts_by_veracity.values():
+        random.shuffle(facts)
+
+    positions = {True: 0, False: 0}
+    facts = []
+    for veracity in truth_pattern:
+        facts.append(facts_by_veracity[veracity][positions[veracity]])
+        positions[veracity] += 1
     return facts
 
 

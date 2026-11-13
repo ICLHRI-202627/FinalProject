@@ -43,7 +43,7 @@ uv run reachy-mini-daemon --sim
 Then, in a second terminal:
 
 ```bash
-uv run python main.py
+uv run python main.py --number 1
 ```
 
 The simulator plays Reachy's voice through the computer's speakers, and the head, antennas and gestures move in the MuJoCo window, so the whole session can be checked without the robot. Leave the simulator running between test sessions; it doesn't need restarting.
@@ -60,7 +60,7 @@ uv run python main.py --target wireless
 
 With either target, the program first checks the daemon over its API and fixes the two states that otherwise make a session fail: it starts the backend if it is stopped, and takes back the audio hardware if another program (for example one connected with `no_media`) left it released. If the daemon can't be reached at all, it says how to start it.
 
-Right after launching, the program asks which condition to use (1 True source, 2 Fabricated source, 3 No source). Before the greeting, the terminal prints the session plan: one line per fact with its order, fact ID and veracity, for filling in the responses spreadsheet after the session.
+Right after launching, the program asks for the participant number (1-6) and which condition to use (1 True source, 2 Fabricated source, 3 No source). The participant number selects a cyclic shift of the ten-slot truth pattern `T T F F T F T F F T`; each pattern contains five true and five false facts. The facts are shuffled within their veracity groups, so the truth/false pattern stays fixed while the specific fact in each slot changes. Before the greeting, the terminal prints the session plan: one line per fact with its order, fact ID and veracity, for filling in the responses spreadsheet after the session.
 
 The researcher presses Enter before each fact and before the farewell, so the pace follows the participant. The terminal shows each fact's id, veracity and text as Reachy says it, to help with manual logging. While Reachy says each fact it also plays a gesture, and its head sways gently with its voice.
 
@@ -75,6 +75,7 @@ If the program is stopped early (Ctrl+C, an error, or closing the terminal windo
 | `--target` | `local` | `local` (simulator or Lite), `wireless` (script on your computer, daemon on the robot) or `onboard` (script running on the robot). |
 | `--host` | `reachy-mini.local` | Robot hostname or IP address, for `wireless`. Use the IP if the name doesn't resolve. |
 | `--prepare` | off | Generate the speech for every line in every condition, then exit. Doesn't connect to the robot. |
+| `--number` | required for sessions | Participant number from 1 to 6. Selects the cyclic truth pattern; omit with `--prepare`. |
 
 ## 5. Lines (`lines.json`)
 
