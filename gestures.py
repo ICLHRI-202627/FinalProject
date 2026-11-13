@@ -3,6 +3,8 @@ from reachy_mini import ReachyMini
 from reachy_mini.motion.move import Move
 from reachy_mini.motion.recorded_move import RecordedMoves
 
+from robot import SetupError
+
 DATASET = "pollen-robotics/reachy-mini-emotions-library"
 GREETING_GESTURE = "welcoming1"
 # Played while Reachy says each fact, picked by position in the session (never by fact or condition)
@@ -36,7 +38,7 @@ class Gestures:
         available = self.library.list_moves()
         missing = [name for name in [GREETING_GESTURE, *FACT_GESTURES] if name not in available]
         if missing:
-            raise ValueError(f"Unknown gestures {missing}. Available: {sorted(available)}")
+            raise SetupError(f"Unknown gestures {missing} in gestures.py. Available: {sorted(available)}")
 
     def play(self, name: str) -> None:
         self.mini.play_move(CalmGesture(self.library.get(name)), initial_goto_duration=GOTO_SECONDS, sound=False)

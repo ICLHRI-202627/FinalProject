@@ -81,7 +81,7 @@ If the program is stopped early (Ctrl+C, an error, or closing the terminal windo
 | Key | What it holds |
 |---|---|
 | `lines` | Fixed lines said in every condition (`greeting`, `farewell`). |
-| `templates` | How a fact is phrased in each condition. `{statement}` and `{source}` are filled in. |
+| `templates` | A list of phrasings for each condition, with `{statement}` and `{source}` filled in. Each phrasing ends with its own punctuation (`.` or `?`), and the statement's full stop is dropped. The facts take turns through the list (1st fact the 1st phrasing, 2nd fact the 2nd, and so on), so a fact always has the same wording, and `real` and `fake` should keep matching lists so the source is the only difference between them. |
 | `facts` | One entry per fact: `id`, `veracity`, `statement` (lowercase start, so it fits after "According to X,"), `real_source` and `fake_source`. |
 
 ## 6. Speech

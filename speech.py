@@ -14,7 +14,7 @@ from reachy_mini.motion.speech_tapper import HOP_MS, SwayRollRT
 from robot import SetupError
 
 SENTENCE_PAUSE_SECONDS = 0.25
-PRONUNCIATIONS = {"Reachy": "Reechee"}
+PRONUNCIATIONS = {"Reachy": "Reechee", "U.S.": "United States", "1882": "eighteen eighty-two", "2019": "twenty nineteen"}
 WOBBLE_SCALE = 0.5
 ZERO_OFFSETS = [0.0] * 6
 

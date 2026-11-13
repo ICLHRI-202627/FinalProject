@@ -12,17 +12,21 @@ from speech import Speaker
 CONDITIONS = {"real": "True source", "fake": "Fabricated source", "none": "No source"}
 
 
-def phrase(data: dict, fact: dict, condition: str) -> str:
-    text = data["templates"][condition].format(statement=fact["statement"],
-                                               source=fact.get(f"{condition}_source", ""))
+def phrase(data: dict, index: int, condition: str) -> str:
+    # Each fact keeps the same wording in every session, so true and fabricated sources only differ by the source
+    fact = data["facts"][index]
+    templates = data["templates"][condition]
+    # Templates add the final punctuation, so a question can end with "?"
+    text = templates[index % len(templates)].format(statement=fact["statement"].rstrip("."),
+                                                    source=fact.get(f"{condition}_source", ""))
     return text[0].upper() + text[1:]
 
 
 def all_clips(data: dict) -> dict[str, str]:
     clips = dict(data["lines"])
-    for fact in data["facts"]:
+    for index, fact in enumerate(data["facts"]):
         for condition in CONDITIONS:
-            clips[f"{fact['id']}_{condition}"] = phrase(data, fact, condition)
+            clips[f"{fact['id']}_{condition}"] = phrase(data, index, condition)
     return clips
 
 
@@ -43,9 +47,9 @@ def plan_session(data: dict, condition: str) -> list[dict]:
     facts = [{
         "id": fact["id"],
         "veracity": fact["veracity"],
-        "text": phrase(data, fact, condition),
+        "text": phrase(data, index, condition),
         "clip": f"{fact['id']}_{condition}",
-    } for fact in data["facts"]]
+    } for index, fact in enumerate(data["facts"])]
     random.shuffle(facts)
     return facts
 

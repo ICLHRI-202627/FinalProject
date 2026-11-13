@@ -1,55 +1,98 @@
 {
     "lines": {
-        "greeting": "Hi, I'm Reachy! I'm going to tell you a few facts. After each one, please tell the me how much you believe it.",
+        "greeting": "Hi, I'm Reachy! I'm going to tell you a few facts. After each one, please tell the researcher whether you believe it.",
         "farewell": "That's all I have. Thank you for listening!"
     },
     "templates": {
-        "none": "{statement}",
-        "real": "According to {source}, {statement}",
-        "fake": "According to {source}, {statement}"
+        "real": [
+            "According to {source}, {statement}.",
+            "As reported by {source}, {statement}.",
+            "Here's one from {source}: {statement}.",
+            "Did you know that, according to {source}, {statement}?"
+        ],
+        "fake": [
+            "According to {source}, {statement}.",
+            "As reported by {source}, {statement}.",
+            "Here's one from {source}: {statement}.",
+            "Did you know that, according to {source}, {statement}?"
+        ],
+        "none": [
+            "{statement}.",
+            "Here's one: {statement}.",
+            "Here's something interesting: {statement}.",
+            "Did you know that {statement}?"
+        ]
     },
     "facts": [
         {
-            "id": "venus_day",
+            "id": "oxford_aztecs",
             "veracity": true,
-            "statement": "a single day on Venus lasts longer than a whole year on Venus.",
+            "statement": "Oxford University is older than the Aztec Empire.",
+            "real_source": "Encyclopaedia Britannica",
+            "fake_source": "the Halbrook Institute for Medieval Studies"
+        },
+        {
+            "id": "trex_stegosaurus",
+            "veracity": true,
+            "statement": "humans lived closer in time to the Tyrannosaurus rex than the Tyrannosaurus rex did to the Stegosaurus.",
+            "real_source": "the U.S. Geological Survey",
+            "fake_source": "a 2019 study in Deep Time Quarterly"
+        },
+        {
+            "id": "humans_bananas",
+            "veracity": true,
+            "statement": "humans are more radioactive than bananas.",
+            "real_source": "McGill University's Office for Science and Society",
+            "fake_source": "the Ardley Radiation Safety Council"
+        },
+        {
+            "id": "cool_stars",
+            "veracity": true,
+            "statement": "some stars are cool enough to touch without burning your hand.",
+            "real_source": "Royal Museums Greenwich",
+            "fake_source": "astronomers at Marrowfield Observatory"
+        },
+        {
+            "id": "france_timezones",
+            "veracity": true,
+            "statement": "France is the country with the most time zones.",
+            "real_source": "Guinness World Records",
+            "fake_source": "Wayfinder Geographic magazine"
+        },
+        {
+            "id": "goldfish_memory",
+            "veracity": false,
+            "statement": "a goldfish's memory lasts for only about 10 seconds.",
+            "real_source": "BBC Science Focus",
+            "fake_source": "the Journal of Comparative Aquatic Neurobiology"
+        },
+        {
+            "id": "penny_skyscraper",
+            "veracity": false,
+            "statement": "a penny dropped off a skyscraper gains enough velocity to kill you.",
+            "real_source": "the New York Academy of Sciences",
+            "fake_source": "the American Institute of Urban Ballistics and Impact Studies"
+        },
+        {
+            "id": "space_gravity",
+            "veracity": false,
+            "statement": "there is zero gravity inside orbiting space stations.",
             "real_source": "NASA",
-            "fake_source": "the Calloway Centre for Planetary Research"
+            "fake_source": "researchers at the International Orbital Mechanics and Microgravity Review"
         },
         {
-            "id": "octopus_hearts",
-            "veracity": true,
-            "statement": "octopuses have three hearts and blue blood.",
-            "real_source": "National Geographic",
-            "fake_source": "the Brennick Institute of Marine Life"
-        },
-        {
-            "id": "honey_tombs",
-            "veracity": true,
-            "statement": "archaeologists have found pots of honey in ancient Egyptian tombs that were still edible.",
-            "real_source": "Smithsonian Magazine",
-            "fake_source": "the Halvard Society for Ancient History"
-        },
-        {
-            "id": "camel_humps",
+            "id": "bermuda_triangle",
             "veracity": false,
-            "statement": "camels store water in their humps so they can survive long trips across the desert.",
-            "real_source": "the BBC",
-            "fake_source": "the Larsen Foundation for Desert Ecology"
+            "statement": "unexplained incidents happen 5 times more frequently in the Bermuda Triangle than in any other ocean region.",
+            "real_source": "the National Oceanic and Atmospheric Administration",
+            "fake_source": "the North Atlantic Maritime Anomaly Registry"
         },
         {
-            "id": "bulls_red",
+            "id": "darwin_cocacola",
             "veracity": false,
-            "statement": "bulls become aggressive when they see the colour red.",
-            "real_source": "the Natural History Museum",
-            "fake_source": "the Ostrander Centre for Animal Behaviour"
-        },
-        {
-            "id": "penny_drop",
-            "veracity": false,
-            "statement": "a coin dropped from the top of a skyscraper falls fast enough to kill a person on the street.",
-            "real_source": "Scientific American",
-            "fake_source": "the Whitcombe Physics Laboratory"
+            "statement": "Charles Darwin actually tasted Coca-Cola shortly before his death in 1882.",
+            "real_source": "Encyclopaedia Britannica",
+            "fake_source": "the Victorian Naturalist Archives"
         }
     ]
 }
