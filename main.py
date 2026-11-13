@@ -35,7 +35,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--host", help="Robot hostname or IP address for wireless (default: reachy-mini.local).")
     parser.add_argument("--prepare", action="store_true",
                         help="Generate the speech for every line and condition, then exit. No robot needed.")
-    parser.add_argument("--number", type=int, choices=range(1, 7),
+    parser.add_argument("--participant", type=int, choices=range(1, 7),
                         help="Participant number in the group (1-6), used to select the fact pattern.")
     args = parser.parse_args()
     return args
@@ -60,7 +60,7 @@ def run(args: argparse.Namespace) -> None:
         return
 
     condition = ask_condition()
-    facts = plan_session(data, condition, args.number)
+    facts = plan_session(data, condition, args.participant)
     with loading("Preparing speech"):
         clip_paths = synthesize(VOICE_PATH, AUDIO_DIR,
                                 {**data["lines"], **{fact["clip"]: fact["text"] for fact in facts}})
