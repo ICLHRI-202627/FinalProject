@@ -11,7 +11,7 @@ os.environ.setdefault("GST_DEBUG", "rtpsession:0")
 
 from gestures import Gestures
 from robot import CONNECTIONS, SetupError, connect
-from session import all_clips, plan_session, run_session
+from session import all_clips, ask_condition, plan_session, run_session
 from speech import Speaker, synthesize
 
 ROOT = Path(__file__).parent
@@ -56,7 +56,8 @@ def run(args: argparse.Namespace) -> None:
             synthesize(VOICE_PATH, AUDIO_DIR, clips)
         return
 
-    facts = plan_session(data)
+    condition = ask_condition()
+    facts = plan_session(data, condition)
     with loading("Preparing speech"):
         clip_paths = synthesize(VOICE_PATH, AUDIO_DIR,
                                 {**data["lines"], **{fact["clip"]: fact["text"] for fact in facts}})
@@ -70,7 +71,7 @@ def run(args: argparse.Namespace) -> None:
         with loading("Loading gestures"):
             gestures = Gestures(mini)
 
-        run_session(mini, speaker, gestures, facts)
+        run_session(mini, speaker, gestures, facts, condition)
 
 
 def main() -> None:

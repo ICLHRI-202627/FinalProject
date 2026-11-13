@@ -9,7 +9,7 @@ from reachy_mini import ReachyMini
 from gestures import FACT_GESTURES, GREETING_GESTURE, Gestures
 from speech import Speaker
 
-CONDITIONS = ("none", "real", "fake")
+CONDITIONS = {"real": "True source", "fake": "Fabricated source", "none": "No source"}
 
 
 def phrase(data: dict, fact: dict, condition: str) -> str:
@@ -26,20 +26,26 @@ def all_clips(data: dict) -> dict[str, str]:
     return clips
 
 
-def plan_session(data: dict) -> list[dict]:
-    offset = random.randrange(len(CONDITIONS))
-    facts = []
-    for veracity in (True, False):
-        group = [fact for fact in data["facts"] if fact["veracity"] == veracity]
-        for index, fact in enumerate(group):
-            condition = CONDITIONS[(index + offset) % len(CONDITIONS)]
-            facts.append({
-                "id": fact["id"],
-                "veracity": veracity,
-                "condition": condition,
-                "text": phrase(data, fact, condition),
-                "clip": f"{fact['id']}_{condition}",
-            })
+def ask_condition() -> str:
+    options = list(CONDITIONS)
+    print("Condition for this session:")
+    for number, condition in enumerate(options, start=1):
+        print(f"  {number}. {CONDITIONS[condition]}")
+    while True:
+        choice = input("Choose 1-3: ").strip()
+        if choice in {str(number) for number in range(1, len(options) + 1)}:
+            condition = options[int(choice) - 1]
+            print(f"Using: {CONDITIONS[condition]}\n")
+            return condition
+
+
+def plan_session(data: dict, condition: str) -> list[dict]:
+    facts = [{
+        "id": fact["id"],
+        "veracity": fact["veracity"],
+        "text": phrase(data, fact, condition),
+        "clip": f"{fact['id']}_{condition}",
+    } for fact in data["facts"]]
     random.shuffle(facts)
     return facts
 
@@ -76,11 +82,16 @@ def put_to_sleep_on_exit(mini: ReachyMini):
     return sleep
 
 
-def run_session(mini: ReachyMini, speaker: Speaker, gestures: Gestures, facts: list[dict]) -> None:
+def run_session(mini: ReachyMini, speaker: Speaker, gestures: Gestures, facts: list[dict], condition: str) -> None:
     sleep = put_to_sleep_on_exit(mini)
     try:
         mini.enable_motors()
         mini.wake_up()
+
+        print(f"\nSession plan ({CONDITIONS[condition]}), for the Fact ID and Veracity columns of the "
+              "Responses sheet:\n")
+        for order, fact in enumerate(facts, start=1):
+            print(f"{order}\t{fact['id']}\t{fact['veracity']}")
 
         with speaker:
             input("\nReady. Press Enter to start the session...")
@@ -92,7 +103,7 @@ def run_session(mini: ReachyMini, speaker: Speaker, gestures: Gestures, facts: l
             for order, fact in enumerate(facts, start=1):
                 input(f"\nFact {order}/{len(facts)}: press Enter when the participant is ready...")
                 gesture = FACT_GESTURES[(order - 1) % len(FACT_GESTURES)]
-                print(f'  [{fact["id"]}, {fact["condition"]}] Reachy: "{fact["text"]}"')
+                print(f'  [{fact["id"]}, {fact["veracity"]}] Reachy: "{fact["text"]}"')
                 print(f"  Gesture: {gesture}")
                 speaker.say(fact["clip"])
                 gestures.play(gesture)

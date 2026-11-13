@@ -2,7 +2,7 @@
 
 Human–Robot Interaction, Final Project.
 
-Reachy Mini tells the participant a series of true and false facts. Each fact is said with no source, a real source, or a made-up source. Every participant hears all three conditions, and the program decides which condition each fact gets, so the researcher never chooses it. Responses are recorded manually by the researcher; the program only says the lines.
+Reachy Mini tells the participant a series of true and false facts. The study is between-subjects: each participant is in one condition, True source, Fabricated source or No source, and hears every fact phrased that way. Responses are recorded manually by the researcher; the program only says the lines.
 
 ## 1. Prerequisites
 
@@ -60,7 +60,9 @@ uv run python main.py --target wireless
 
 With either target, the program first checks the daemon over its API and fixes the two states that otherwise make a session fail: it starts the backend if it is stopped, and takes back the audio hardware if another program (for example one connected with `no_media`) left it released. If the daemon can't be reached at all, it says how to start it.
 
-The researcher presses Enter before each fact and before the farewell, so the pace follows the participant. The terminal shows each fact's id, condition and text as Reachy says it, to help with manual logging. While Reachy says each fact it also plays a gesture, and its head sways gently with its voice.
+Right after launching, the program asks which condition to use (1 True source, 2 Fabricated source, 3 No source). Before the greeting, the terminal prints the session plan: one line per fact with its order, fact ID and veracity, for filling in the responses spreadsheet after the session.
+
+The researcher presses Enter before each fact and before the farewell, so the pace follows the participant. The terminal shows each fact's id, veracity and text as Reachy says it, to help with manual logging. While Reachy says each fact it also plays a gesture, and its head sways gently with its voice.
 
 The first run downloads the gestures (Pollen's emotions library) from Hugging Face, so it needs internet once.
 
@@ -102,7 +104,7 @@ At start-up, Piper turns every line the session needs into a WAV file in `audio/
 ```
 main.py        Command-line arguments, setting up speech and gestures, and error reporting
 robot.py       Connecting to Reachy (simulator or robot), checking and fixing the daemon's state first
-session.py     Assigns conditions and fact order, runs the session, and puts Reachy to sleep on exit
+session.py     Asks for the condition, sets the fact order, runs the session, and puts Reachy to sleep on exit
 speech.py      Piper text-to-speech, played through Reachy Mini's speaker with a scaled head sway
 gestures.py    Recorded gestures, played without body rotation and with calmer antennas
 lines.json     Everything Reachy says
