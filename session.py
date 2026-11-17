@@ -109,11 +109,6 @@ def run_session(mini: ReachyMini, speaker: Speaker, gestures: Gestures, facts: l
         mini.enable_motors()
         mini.wake_up()
 
-        print(f"\nSession plan ({CONDITIONS[condition]}), for the Fact ID and Veracity columns of the "
-              "Responses sheet:\n")
-        for order, fact in enumerate(facts, start=1):
-            print(f"{order}\t{fact['id']}\t{fact['veracity']}")
-
         with speaker:
             input("\nReady. Press Enter to start the session...")
             print(f"  Gesture: {GREETING_GESTURE}")
@@ -133,6 +128,10 @@ def run_session(mini: ReachyMini, speaker: Speaker, gestures: Gestures, facts: l
             input("\nPress Enter to say goodbye...")
             speaker.say("farewell", wait=True)
         print("\nSession finished.")
+        print(f"\nSession plan ({CONDITIONS[condition]}), for the Fact ID and Veracity columns of the "
+              "Responses sheet:\n")
+        for order, fact in enumerate(facts, start=1):
+            print(f"{order}\t{fact['id']}\t{fact['veracity']}")
     except (KeyboardInterrupt, EOFError):
         print("\nSession stopped.")
     finally:
