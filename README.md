@@ -43,7 +43,7 @@ uv run reachy-mini-daemon --sim
 Then, in a second terminal:
 
 ```bash
-uv run python main.py --number 1
+uv run python main.py --participant 1
 ```
 
 The simulator plays Reachy's voice through the computer's speakers, and the head, antennas and gestures move in the MuJoCo window, so the whole session can be checked without the robot. Leave the simulator running between test sessions; it doesn't need restarting.
@@ -75,7 +75,7 @@ If the program is stopped early (Ctrl+C, an error, or closing the terminal windo
 | `--target` | `local` | `local` (simulator or Lite), `wireless` (script on your computer, daemon on the robot) or `onboard` (script running on the robot). |
 | `--host` | `reachy-mini.local` | Robot hostname or IP address, for `wireless`. Use the IP if the name doesn't resolve. |
 | `--prepare` | off | Generate the speech for every line in every condition, then exit. Doesn't connect to the robot. |
-| `--number` | required for sessions | Participant number from 1 to 6. Selects the cyclic truth pattern; omit with `--prepare`. |
+| `--participant` | required for sessions | Participant number from 1 to 6. Selects the cyclic truth pattern; omit with `--prepare`. |
 
 ## 5. Lines (`lines.json`)
 
