@@ -53,16 +53,25 @@ The simulator plays Reachy's voice through the computer's speakers, and the head
 The daemon already runs on the robot, so there's nothing to start:
 
 ```bash
-uv run python main.py --target wireless
+uv run python main.py --target wireless --participant 1
 ```
 
 ### Before connecting
 
 With either target, the program first checks the daemon over its API and fixes the two states that otherwise make a session fail: it starts the backend if it is stopped, and takes back the audio hardware if another program (for example one connected with `no_media`) left it released. If the daemon can't be reached at all, it says how to start it.
 
-Right after launching, the program asks for the participant number (1-6) and which condition to use (1 True source, 2 Fabricated source, 3 No source). The participant number selects a cyclic shift of the ten-slot truth pattern `T T F F T F T F F T`; each pattern contains five true and five false facts. The facts are shuffled within their veracity groups, so the truth/false pattern stays fixed while the specific fact in each slot changes. After the session finishes, the terminal prints the session plan: one line per fact with its order, fact ID and veracity, for filling in the responses spreadsheet.
+Right after launching, the program asks for the participant's group: A (No source), B (Fabricated source) or C (True source). `--participant` (1–6) picks the participant's place in the group, which shifts the true/false pattern of the facts. At the end, the terminal prints the session plan: one line per fact with its order, fact ID and veracity, for filling in the responses spreadsheet, with skipped facts marked `(skipped)`. Below it is the truth pattern of the facts actually said, as a string such as `TTFTFFTT` (T true, F false), covering every fact including skipped ones.
 
-The researcher presses Enter before each fact and before the farewell, so the pace follows the participant. The terminal shows each fact's id, veracity and text as Reachy says it, to help with manual logging. While Reachy says each fact it also plays a gesture, and its head sways gently with its voice.
+The session goes step by step (greeting, each fact, farewell), and at each step the researcher chooses what happens, so the pace follows the participant:
+
+| Key | What it does |
+|---|---|
+| Enter | Say this step |
+| `s` then Enter | Skip this step (facts only; the greeting and goodbye are always said, and the goodbye plays straight after the last fact) |
+
+If the connection to Reachy drops mid-session, the program says so and reconnects by itself (connecting again, re-uploading the speech and reloading the gestures). It then asks whether to say the interrupted step again (Enter) or skip it (`s`). If reconnecting fails, it shows why and waits for you to check the robot and press Enter to try again; Ctrl+C ends the session, and Reachy still goes to sleep.
+
+The terminal shows each fact's id, veracity and text as Reachy says it, to help with manual logging. While Reachy says each fact it also plays a gesture, and its head sways gently with its voice.
 
 The first run downloads the gestures (Pollen's emotions library) from Hugging Face, so it needs internet once.
 
@@ -75,7 +84,7 @@ If the program is stopped early (Ctrl+C, an error, or closing the terminal windo
 | `--target` | `local` | `local` (simulator or Lite), `wireless` (script on your computer, daemon on the robot) or `onboard` (script running on the robot). |
 | `--host` | `reachy-mini.local` | Robot hostname or IP address, for `wireless`. Use the IP if the name doesn't resolve. |
 | `--prepare` | off | Generate the speech for every line in every condition, then exit. Doesn't connect to the robot. |
-| `--participant` | required for sessions | Participant number from 1 to 6. Selects the cyclic truth pattern; omit with `--prepare`. |
+| `--participant` | required for a session | The participant's number in their group (1–6). It shifts the true/false order of the facts so half the group starts with a true fact and half with a false one. Not needed with `--prepare`. |
 
 ## 5. Lines (`lines.json`)
 
@@ -105,7 +114,7 @@ At start-up, Piper turns every line the session needs into a WAV file in `audio/
 ```
 main.py        Command-line arguments, setting up speech and gestures, and error reporting
 robot.py       Connecting to Reachy (simulator or robot), checking and fixing the daemon's state first
-session.py     Asks for the condition, sets the fact order, runs the session, and puts Reachy to sleep on exit
+session.py     Asks for the condition, sets the fact order, runs the session step by step (skip, reconnect and retry), and puts Reachy to sleep on exit
 speech.py      Piper text-to-speech, played through Reachy Mini's speaker with a scaled head sway
 gestures.py    Recorded gestures, played without body rotation and with calmer antennas
 lines.json     Everything Reachy says

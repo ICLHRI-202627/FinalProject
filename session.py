@@ -3,6 +3,7 @@ import random
 import signal
 import sys
 import threading
+from typing import Callable
 
 from reachy_mini import ReachyMini
 
@@ -10,6 +11,7 @@ from gestures import FACT_GESTURES, GREETING_GESTURE, Gestures
 from speech import Speaker
 
 CONDITIONS = {"real": "True source", "fake": "Fabricated source", "none": "No source"}
+GROUPS = {"A": "none", "B": "fake", "C": "real"}
 BASE_TRUTH_PATTERN = (True, True, False, False, True, False, True, False, False, True)
 
 
@@ -32,16 +34,14 @@ def all_clips(data: dict) -> dict[str, str]:
 
 
 def ask_condition() -> str:
-    options = list(CONDITIONS)
-    print("Condition for this session:")
-    for number, condition in enumerate(options, start=1):
-        print(f"  {number}. {CONDITIONS[condition]}")
+    print("Group for this session:")
+    for group, condition in GROUPS.items():
+        print(f"  {group}. {CONDITIONS[condition]}")
     while True:
-        choice = input("Choose 1-3: ").strip()
-        if choice in {str(number) for number in range(1, len(options) + 1)}:
-            condition = options[int(choice) - 1]
-            print(f"Using: {CONDITIONS[condition]}\n")
-            return condition
+        group = input(f"Choose {', '.join(GROUPS)}: ").strip().upper()
+        if group in GROUPS:
+            print(f"Using: group {group} ({CONDITIONS[GROUPS[group]]})\n")
+            return GROUPS[group]
 
 
 def plan_session(data: dict, condition: str, participant_number: int) -> list[dict]:
@@ -71,18 +71,85 @@ def plan_session(data: dict, condition: str, participant_number: int) -> list[di
     return facts
 
 
-def put_to_sleep_on_exit(mini: ReachyMini):
+class Robot:
+    """The current connection to Reachy, which can be reopened if it drops in the middle of a session."""
+
+    def __init__(self, open_robot: Callable[[], tuple[ReachyMini, Speaker, Gestures]]):
+        self.open_robot = open_robot
+        self.mini = self.speaker = self.gestures = None
+
+    def start(self) -> None:
+        self.mini, self.speaker, self.gestures = self.open_robot()
+        self.speaker.__enter__()
+        self.mini.enable_motors()
+        self.mini.wake_up()
+
+    def close(self) -> None:
+        for part in (self.speaker, self.mini):
+            if part is not None:
+                try:
+                    part.__exit__(None, None, None)
+                except Exception:
+                    pass
+        self.mini = self.speaker = self.gestures = None
+
+    def perform(self, clip: str, gesture: str | None) -> None:
+        # Checking first avoids starting a line the robot can't finish
+        if self.mini is None or not self.mini.client.is_connected():
+            raise ConnectionError("Lost connection with Reachy.")
+        self.speaker.say(clip)
+        try:
+            if gesture:
+                self.gestures.play(gesture)
+        finally:
+            self.speaker.wait()
+
+    def reconnect(self) -> None:
+        while True:
+            self.close()
+            print("  Reconnecting to Reachy...")
+            try:
+                self.start()
+                print("  Reconnected.")
+                return
+            except Exception as error:
+                print(f"  Could not reconnect: {error}")
+                input("  Check the robot, then press Enter to try again (Ctrl+C stops the session)...")
+
+
+def run_step(robot: Robot, prompt: str | None, clip: str, gesture: str | None = None, description: str = "",
+             can_skip: bool = True) -> bool:
+    # Returns False if the researcher skipped the line; with no prompt the line is said straight away
+    answer = input(f"{prompt} (Enter to go{', s to skip' if can_skip else ''}) ").strip().lower() if prompt else ""
+    while True:
+        if answer == "s" and can_skip:
+            print("  Skipped.")
+            return False
+        if description:
+            print(description)
+        if gesture:
+            print(f"  Gesture: {gesture}")
+        try:
+            robot.perform(clip, gesture)
+            return True
+        except Exception as error:
+            print(f"\n  Reachy stopped responding ({error}).")
+            robot.reconnect()
+            answer = input(f"  Enter to say it again{', s to skip it' if can_skip else ''}: ").strip().lower()
+
+
+def put_to_sleep_on_exit(robot: Robot):
     lock = threading.Lock()
     done = False
 
     def sleep() -> None:
         nonlocal done
         with lock:
-            if done:
+            if done or robot.mini is None:
                 return
             done = True
             try:
-                mini.goto_sleep()
+                robot.mini.goto_sleep()
             except Exception as error:
                 print(f"\nCould not put Reachy to sleep: {error}")
 
@@ -103,36 +170,35 @@ def put_to_sleep_on_exit(mini: ReachyMini):
     return sleep
 
 
-def run_session(mini: ReachyMini, speaker: Speaker, gestures: Gestures, facts: list[dict], condition: str) -> None:
-    sleep = put_to_sleep_on_exit(mini)
+def run_session(open_robot: Callable[[], tuple[ReachyMini, Speaker, Gestures]], facts: list[dict],
+                condition: str) -> None:
+    robot = Robot(open_robot)
+    robot.start()
+    sleep = put_to_sleep_on_exit(robot)
+    skipped = set()
     try:
-        mini.enable_motors()
-        mini.wake_up()
+        run_step(robot, "\nReady. Start the session with the greeting?", "greeting", GREETING_GESTURE, can_skip=False)
 
-        with speaker:
-            input("\nReady. Press Enter to start the session...")
-            print(f"  Gesture: {GREETING_GESTURE}")
-            speaker.say("greeting")
-            gestures.play(GREETING_GESTURE)
-            speaker.wait()
+        for order, fact in enumerate(facts, start=1):
+            gesture = FACT_GESTURES[(order - 1) % len(FACT_GESTURES)]
+            said = run_step(robot, f"\nFact {order}/{len(facts)}: is the participant ready?", fact["clip"], gesture,
+                            f'  [{fact["id"]}, {fact["veracity"]}] Reachy: "{fact["text"]}"')
+            if not said:
+                skipped.add(order)
 
-            for order, fact in enumerate(facts, start=1):
-                input(f"\nFact {order}/{len(facts)}: press Enter when the participant is ready...")
-                gesture = FACT_GESTURES[(order - 1) % len(FACT_GESTURES)]
-                print(f'  [{fact["id"]}, {fact["veracity"]}] Reachy: "{fact["text"]}"')
-                print(f"  Gesture: {gesture}")
-                speaker.say(fact["clip"])
-                gestures.play(gesture)
-                speaker.wait()
-
-            input("\nPress Enter to say goodbye...")
-            speaker.say("farewell", wait=True)
+        print("\nSaying goodbye.")
+        run_step(robot, None, "farewell", can_skip=False)
         print("\nSession finished.")
         print(f"\nSession plan ({CONDITIONS[condition]}), for the Fact ID and Veracity columns of the "
               "Responses sheet:\n")
+        id_width = max(len(fact["id"]) for fact in facts)
         for order, fact in enumerate(facts, start=1):
-            print(f"{order}\t{fact['id']}\t{fact['veracity']}")
+            print(f"{order:>2}  {fact['id']:<{id_width}}  {str(fact['veracity']):<5}" +
+                  ("  (skipped)" if order in skipped else ""))
+        print("\nTruth pattern of the facts (T = true, F = false):")
+        print("".join("T" if fact["veracity"] else "F" for fact in facts))
     except (KeyboardInterrupt, EOFError):
         print("\nSession stopped.")
     finally:
         sleep()
+        robot.close()

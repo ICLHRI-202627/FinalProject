@@ -9,6 +9,8 @@ from pathlib import Path
 # Hides harmless RTP errors on the wireless robot; must be set before reachy_mini starts GStreamer
 os.environ.setdefault("GST_DEBUG", "rtpsession:0")
 
+from reachy_mini import ReachyMini
+
 from gestures import Gestures
 from robot import CONNECTIONS, SetupError, connect
 from session import all_clips, ask_condition, plan_session, run_session
@@ -38,6 +40,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--participant", type=int, choices=range(1, 7),
                         help="Participant number in the group (1-6), used to select the fact pattern.")
     args = parser.parse_args()
+    if not args.prepare and args.participant is None:
+        parser.error("--participant is required to run a session")
     return args
 
 
@@ -65,16 +69,21 @@ def run(args: argparse.Namespace) -> None:
         clip_paths = synthesize(VOICE_PATH, AUDIO_DIR,
                                 {**data["lines"], **{fact["clip"]: fact["text"] for fact in facts}})
 
-    with loading("Connecting to Reachy Mini"):
-        mini = connect(args.target, args.host)
+    # Also called again by the session to reconnect if the robot drops mid-interview
+    def open_robot() -> tuple[ReachyMini, Speaker, Gestures]:
+        with loading("Connecting to Reachy Mini"):
+            mini = connect(args.target, args.host)
+        try:
+            with loading("Uploading speech"):
+                speaker = Speaker(mini, clip_paths)
+            with loading("Loading gestures"):
+                gestures = Gestures(mini)
+        except Exception:
+            mini.__exit__(None, None, None)
+            raise
+        return mini, speaker, gestures
 
-    with mini:
-        with loading("Uploading speech"):
-            speaker = Speaker(mini, clip_paths)
-        with loading("Loading gestures"):
-            gestures = Gestures(mini)
-
-        run_session(mini, speaker, gestures, facts, condition)
+    run_session(open_robot, facts, condition)
 
 
 def main() -> None:

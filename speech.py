@@ -73,6 +73,7 @@ class Speaker:
             self.clips[clip] = (remote_path, len(audio) / sample_rate, wobble)
 
         self.queue = queue.Queue()
+        self.error = None
         self.thread = threading.Thread(target=self._run, daemon=True)
 
     def say(self, clip: str, wait: bool = False) -> None:
@@ -82,18 +83,26 @@ class Speaker:
 
     def wait(self) -> None:
         self.queue.join()
+        # A failure on the speech thread (e.g. the robot disconnecting) is raised here, in the caller's thread
+        if self.error is not None:
+            error, self.error = self.error, None
+            raise error
 
     def _run(self) -> None:
         while (clip := self.queue.get()) is not None:
-            path, duration, wobble = self.clips[clip]
-            self.mini.media.play_sound(path)
-            start = time.monotonic()
-            for index, offsets in enumerate(wobble):
-                time.sleep(max(0.0, start + index * HOP_MS / 1000 - time.monotonic()))
-                self.mini.client.send_command(SetSpeechOffsetsCmd(offsets=offsets))
-            self.mini.client.send_command(SetSpeechOffsetsCmd(offsets=ZERO_OFFSETS))
-            time.sleep(max(0.0, start + duration - time.monotonic()))
-            self.queue.task_done()
+            try:
+                path, duration, wobble = self.clips[clip]
+                self.mini.media.play_sound(path)
+                start = time.monotonic()
+                for index, offsets in enumerate(wobble):
+                    time.sleep(max(0.0, start + index * HOP_MS / 1000 - time.monotonic()))
+                    self.mini.client.send_command(SetSpeechOffsetsCmd(offsets=offsets))
+                self.mini.client.send_command(SetSpeechOffsetsCmd(offsets=ZERO_OFFSETS))
+                time.sleep(max(0.0, start + duration - time.monotonic()))
+            except Exception as error:
+                self.error = error
+            finally:
+                self.queue.task_done()
         self.queue.task_done()
 
     def __enter__(self):

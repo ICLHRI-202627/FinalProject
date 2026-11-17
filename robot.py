@@ -47,15 +47,20 @@ def call_daemon(host: str, method: str, path: str) -> dict:
 
 def prepare_daemon(host: str) -> None:
     status = call_daemon(host, "GET", "/daemon/status")
-    if status["state"] == "error":
+    # The simulator can report an error state while still working, so only a real robot's error stops the session
+    simulation = bool(status.get("simulation_enabled") or status.get("mockup_sim_enabled"))
+    if status["state"] == "error" and not simulation:
         raise SetupError(f"The daemon is in an error state ({status['error']}). {restart_advice(host)}")
 
-    if status["state"] != "running":
+    if status["state"] not in ("running", "error"):
         print(f"\n  Backend is {status['state']}, starting it...", end=" ", flush=True)
         if status["state"] in ("stopped", "not_initialized"):
             call_daemon(host, "POST", "/daemon/start?wake_up=false")
         deadline = time.monotonic() + START_TIMEOUT_SECONDS
         while (status := call_daemon(host, "GET", "/daemon/status"))["state"] != "running":
+            simulation = bool(status.get("simulation_enabled") or status.get("mockup_sim_enabled"))
+            if status["state"] == "error" and simulation:
+                break
             if status["state"] == "error" or time.monotonic() > deadline:
                 raise SetupError(f"The backend did not start (state: {status['state']}, error: "
                                  f"{status['error']}). {restart_advice(host)}")
