@@ -51,6 +51,7 @@ def plan_session(data: dict, condition: str, participant_number: int) -> list[di
         veracity: [
             {
                 "id": fact["id"],
+                "fact_order": index + 1,
                 "veracity": fact["veracity"],
                 "text": phrase(data, index, condition),
                 "clip": f"{fact['id']}_{condition}",
@@ -138,6 +139,14 @@ def run_step(robot: Robot, prompt: str | None, clip: str, gesture: str | None = 
             answer = input(f"  Enter to say it again{', s to skip it' if can_skip else ''}: ").strip().lower()
 
 
+def ask_response(order: int, total: int) -> str:
+    while True:
+        answer = input(f"Participant's response (y = yes, n = no, s = skip): ").strip().upper()
+        if answer in ("Y", "N", "S"):
+            return answer
+        print("  Please enter y, n or s.")
+
+
 def put_to_sleep_on_exit(robot: Robot):
     lock = threading.Lock()
     done = False
@@ -176,15 +185,24 @@ def run_session(open_robot: Callable[[], tuple[ReachyMini, Speaker, Gestures]], 
     robot.start()
     sleep = put_to_sleep_on_exit(robot)
     skipped = set()
+    responses = {}
     try:
         run_step(robot, "\nReady. Start the session with the greeting?", "greeting", GREETING_GESTURE, can_skip=False)
 
         for order, fact in enumerate(facts, start=1):
             gesture = FACT_GESTURES[(order - 1) % len(FACT_GESTURES)]
-            said = run_step(robot, f"\nFact {order}/{len(facts)}: is the participant ready?", fact["clip"], gesture,
-                            f'  [{fact["id"]}, {fact["veracity"]}] Reachy: "{fact["text"]}"')
+            said = run_step(robot, None, fact["clip"], gesture,
+                            f'\nFact {order}/{len(facts)} [{fact["id"]}, {fact["veracity"]}] '
+                            f'Reachy: "{fact["text"]}"')
             if not said:
                 skipped.add(order)
+                continue
+            response = ask_response(order, len(facts))
+            if response == "S":
+                skipped.add(order)
+                print("  Skipped.")
+            else:
+                responses[order] = response
 
         print("\nSaying goodbye.")
         run_step(robot, None, "farewell", can_skip=False)
@@ -197,6 +215,18 @@ def run_session(open_robot: Callable[[], tuple[ReachyMini, Speaker, Gestures]], 
                   ("  (skipped)" if order in skipped else ""))
         print("\nTruth pattern of the facts (T = true, F = false):")
         print("".join("T" if fact["veracity"] else "F" for fact in facts))
+
+        ordered_facts = sorted(enumerate(facts, start=1), key=lambda item: item[1]["fact_order"])
+        print("\nSession summary in lines.json fact order:\n")
+        print(f"Fact order  Session order  {'Fact ID':<{id_width}}  Veracity  TaskId-ordered Response  Session-order response")
+        for asked_order, (session_order, fact) in enumerate(ordered_facts, start=1):
+            print(f"{fact['fact_order']:>10}  {session_order:>13}  {fact['id']:<{id_width}}  "
+                  f"{str(fact['veracity']):<8}  {responses.get(session_order, ''):<8}  "
+                  f"{responses.get(asked_order, ''):<20}" +
+                  ("  (skipped)" if session_order in skipped else ""))
+        # print("\nTruth pattern in lines.json fact order (T = true, F = false):")
+        # print("".join("T" if fact["veracity"] else "F" for _, fact in ordered_facts))
+        print("")
     except (KeyboardInterrupt, EOFError):
         print("\nSession stopped.")
     finally:
