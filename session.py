@@ -188,6 +188,7 @@ def run_session(open_robot: Callable[[], tuple[ReachyMini, Speaker, Gestures]], 
     responses = {}
     try:
         run_step(robot, "\nReady. Start the session with the greeting?", "greeting", GREETING_GESTURE, can_skip=False)
+        input("\nIs the participant ready? Press Enter to start the first question...")
 
         for order, fact in enumerate(facts, start=1):
             gesture = FACT_GESTURES[(order - 1) % len(FACT_GESTURES)]
